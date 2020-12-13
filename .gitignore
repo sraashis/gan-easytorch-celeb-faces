@@ -127,3 +127,4 @@ logs_backup
 .ipynb_checkpoints
 chk
 net_logs
+datasets
