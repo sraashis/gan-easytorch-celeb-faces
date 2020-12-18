@@ -1,24 +1,22 @@
-
+import argparse
 import os
 
 import torch
 import torchvision.transforms as tmf
 import torchvision.utils as vutils
 from PIL import Image as IMG
+from easytorch import EasyTorch
 from easytorch.core.metrics import ETAverages
 from easytorch.core.nn import ETTrainer, ETDataset
-
-from models import Generator, Discriminator
-import argparse
 from easytorch.utils.defaultargs import ap
-import dataspecs as dspec
 
-from easytorch import EasyTorch
+import dataspecs as dspec
+from models import Generator, Discriminator
 
 sep = os.sep
 
 
-class FashionDataset(ETDataset):
+class CelebDataset(ETDataset):
     def __init__(self, **kw):
         super().__init__(**kw)
         self.image_size = 64
@@ -32,8 +30,8 @@ class FashionDataset(ETDataset):
     @property
     def transforms(self):
         return tmf.Compose(
-            [tmf.RandomHorizontalFlip(), tmf.RandomVerticalFlip(),
-             tmf.Resize(self.image_size), tmf.CenterCrop(self.image_size), tmf.ToTensor()])
+            [tmf.Resize(self.image_size), tmf.CenterCrop(self.image_size),
+             tmf.ToTensor(), tmf.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
 
 
 class GANTrainer(ETTrainer):
@@ -48,8 +46,10 @@ class GANTrainer(ETTrainer):
         self.nn['dis'] = Discriminator(self.args['num_channel'], self.args['map_dis_size'])
 
     def _init_optimizer(self):
-        self.optimizer['gen'] = torch.optim.Adam(self.nn['gen'].parameters(), lr=self.args['learning_rate'])
-        self.optimizer['dis'] = torch.optim.Adam(self.nn['gen'].parameters(), lr=self.args['learning_rate'])
+        self.optimizer['gen'] = torch.optim.Adam(self.nn['gen'].parameters(), lr=self.args['learning_rate'],
+                                                 betas=(0.5, 0.999))
+        self.optimizer['dis'] = torch.optim.Adam(self.nn['gen'].parameters(), lr=self.args['learning_rate'],
+                                                 betas=(0.5, 0.999))
 
     def training_iteration(self, batch):
         real_data = batch['input'].to(self.device['gpu'])
@@ -63,7 +63,6 @@ class GANTrainer(ETTrainer):
         """
         Train Discriminator
         """
-        # Reset gradients
         self.optimizer['dis'].zero_grad()
         # Train on Real Data
         prediction_real = self.nn['dis'](real_data)
@@ -84,11 +83,10 @@ class GANTrainer(ETTrainer):
         """
         Train Generator
         """
-        # Reset gradients
         self.nn['gen'].zero_grad()
         # Sample noise and generate fake data
         prediction = self.nn['dis'](fake_data)
-        # Calculate error and backpropagate
+        # Calculate error and back-propagate
         g_loss = self.adversarial_loss(prediction, real_label)
         g_loss.backward()
         # Update weights with gradients
@@ -100,7 +98,7 @@ class GANTrainer(ETTrainer):
         return {'averages': losses, 'fake_images': fake_data}
 
     def _on_iteration_end(self, i, ep, it):
-        if i % 20 == 0:  # Save every 20th batch from each epoch
+        if ep > 5 and i % 100 == 0:  # Save every 20th batch from each epoch
             grid = vutils.make_grid(it['fake_images'], padding=2, normalize=True)
             vutils.save_image(grid, f"{self.cache['log_dir']}{sep}{i}.png")
 
@@ -119,4 +117,4 @@ dataspecs = [dspec.CELEB]
 runner = EasyTorch(ap, dataspecs)
 
 if __name__ == "__main__":
-    runner.run(FashionDataset, GANTrainer)
+    runner.run(CelebDataset, GANTrainer)
