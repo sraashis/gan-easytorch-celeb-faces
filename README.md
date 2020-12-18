@@ -2,7 +2,7 @@
 ### 1. Dataset can be downloaded at [CelebFaces Attributes Datasets](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html)
 ### 2. Models/Implementation example for Generator and Discriminator are used from the examples:
 - [DCGAN Tutorial](https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html)
-- [GANs from scratch](https://medium.com/ai-society/gans-from-scratch-1-a-deep-introduction-with-code-in-pytorch-and-tensorflow-cb03cdcdba0f)
+
 ### How to run?
 #### 1. Download/extract dataset from above in gan-easytorch-celeb-faces/datasets/ folder.
 #### 2. python main.py python main.py -ph train -rt 1 -b 128 -lr 0.0005
@@ -33,9 +33,10 @@ class CelebDataset(ETDataset):
 class GANTrainer(ETTrainer):
     def __init__(self, args):
         super().__init__(args)
-        self.REAL_LABEL = 1
-        self.FAKE_LBL = 0
-        self.adversarial_loss = torch.nn.BCELoss()
+        self.real_label = 1
+        self.fake_label = 0
+        self.criterion = torch.nn.BCELoss()
+        self.fixed_noise = torch.randn(self.args['batch_size'], self.args['latent_size'], 1, 1)
 
     def _init_nn_model(self):
         self.nn['gen'] = Generator(self.args['num_channel'], self.args['latent_size'], self.args['map_gen_size'])
@@ -48,62 +49,75 @@ class GANTrainer(ETTrainer):
                                                  betas=(0.5, 0.999))
 
     def training_iteration(self, batch):
-        real_data = batch['input'].to(self.device['gpu'])
-        N = real_data.size(0)
+        ############################
+        # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
+        ###########################
+        ## Train with all-real batch
+        self.nn['dis'].zero_grad()
+        # Format batch
+        real_images = batch['input'].to(self.device['gpu'])
+        b_size = real_images.size(0)
+        label = torch.full((b_size,), self.real_label, dtype=torch.float, device=self.device['gpu'])
+        # Forward pass real batch through D
+        output = self.nn['dis'](real_images).view(-1)
+        # Calculate loss on all-real batch
+        errD_real = self.criterion(output, label)
+        # Calculate gradients for D in backward pass
+        errD_real.backward()
+        D_x = output.mean().item()
 
-        noise = torch.randn(N, self.args['latent_size'], 1, 1, device=self.device['gpu'])
-        fake_data = self.nn['gen'](noise).detach()
-
-        real_label = torch.full((N, 1, 1, 1), self.REAL_LABEL, dtype=torch.float, device=self.device['gpu'])
-        fake_label = torch.full((N, 1, 1, 1), self.FAKE_LBL, dtype=torch.float, device=self.device['gpu'])
-        """
-        Train Discriminator
-        """
-        self.optimizer['dis'].zero_grad()
-        # Train on Real Data
-        prediction_real = self.nn['dis'](real_data)
-        # Calculate loss and back-propagate
-        loss_real = self.adversarial_loss(prediction_real, real_label)
-        loss_real.backward()
-
-        # Train on Fake Data
-        prediction_fake = self.nn['dis'](fake_data)
-        # Calculate error and back-propagate
-        loss_fake = self.adversarial_loss(prediction_fake, fake_label)
-        loss_fake.backward()
-
-        # Update weights with gradients
+        ## Train with all-fake batch
+        # Generate batch of latent vectors
+        noise = torch.randn(b_size, self.args['latent_size'], 1, 1, device=self.device['gpu'])
+        # Generate fake image batch with G
+        fake = self.nn['gen'](noise).detach()
+        label.fill_(self.fake_label)
+        # Classify all fake batch with D
+        output = self.nn['dis'](fake).view(-1)
+        # Calculate D's loss on the all-fake batch
+        errD_fake = self.criterion(output, label)
+        # Calculate the gradients for this batch
+        errD_fake.backward()
+        D_G_z1 = output.mean().item()
+        # Add the gradients from the all-real and all-fake batches
+        errD = errD_real + errD_fake
+        # Update D
         self.optimizer['dis'].step()
-        d_loss = loss_real + loss_fake
 
-        """
-        Train Generator
-        """
+        ############################
+        # (2) Update G network: maximize log(D(G(z)))
+        ###########################
         self.nn['gen'].zero_grad()
-        # Sample noise and generate fake data
-        prediction = self.nn['dis'](fake_data)
-        # Calculate error and back-propagate
-        g_loss = self.adversarial_loss(prediction, real_label)
-        g_loss.backward()
-        # Update weights with gradients
+        label.fill_(self.real_label)  # fake labels are real for generator cost
+        # Since we just updated D, perform another forward pass of all-fake batch through D
+        output = self.nn['dis'](fake).view(-1)
+        # Calculate G's loss based on this output
+        errG = self.criterion(output, label)
+        # Calculate gradients for G
+        errG.backward()
+        D_G_z2 = output.mean().item()
+        # Update G
         self.optimizer['gen'].step()
 
         losses = self.new_averages()
-        losses.add(d_loss.item(), len(batch['input']), index=0)
-        losses.add(g_loss.item(), len(batch['input']), index=1)
-        return {'averages': losses, 'fake_images': fake_data}
+        losses.add(errD.item(), len(batch['input']), index=0)
+        losses.add(errG.item(), len(batch['input']), index=1)
+        return {'averages': losses, 'real_images':real_images}
 
     def _on_iteration_end(self, i, ep, it):
-        if ep > 5 and i % 100 == 0:  # Save every 20th batch from each epoch
-            grid = vutils.make_grid(it['fake_images'], padding=2, normalize=True)
-            vutils.save_image(grid, f"{self.cache['log_dir']}{sep}{i}.png")
+        if i % 500 == 0:  # Save every 500th batch after 2nd epoch
+            fake = self.nn['gen'](self.fixed_noise.to(self.device['gpu'])).detach().cpu()
+            grid = vutils.make_grid(fake, padding=2, normalize=True)
+            vutils.save_image(grid, f"{self.cache['log_dir']}{sep}{i}_fake.png")
+
+            grid = vutils.make_grid(it['real_images'], padding=2, normalize=True)
+            vutils.save_image(grid, f"{self.cache['log_dir']}{sep}{i}_real.png")
 
     def new_averages(self):
         return ETAverages(num_averages=2)
 
     def reset_fold_cache(self):
         self.cache['training_log'] = ['D_LOSS,G_LOSS']
-
 ```
 Run
 ```python
