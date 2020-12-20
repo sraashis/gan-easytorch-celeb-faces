@@ -5,10 +5,11 @@ import torch
 import torchvision.transforms as tmf
 import torchvision.utils as vutils
 from PIL import Image as IMG
+from easytorch import ETTrainer
 from easytorch import EasyTorch
-from easytorch.core.metrics import ETAverages
-from easytorch.core.nn import ETTrainer, ETDataset
-from easytorch.utils.defaultargs import ap
+from easytorch.data import ETDataset
+from easytorch.etargs import ap
+from easytorch.metrics import ETAverages
 
 import dataspecs as dspec
 from models import Generator, Discriminator
@@ -49,7 +50,7 @@ class GANTrainer(ETTrainer):
     def _init_optimizer(self):
         self.optimizer['gen'] = torch.optim.Adam(self.nn['gen'].parameters(), lr=self.args['learning_rate'],
                                                  betas=(0.5, 0.999))
-        self.optimizer['dis'] = torch.optim.Adam(self.nn['gen'].parameters(), lr=self.args['learning_rate'],
+        self.optimizer['dis'] = torch.optim.Adam(self.nn['dis'].parameters(), lr=self.args['learning_rate'],
                                                  betas=(0.5, 0.999))
 
     def training_iteration(self, batch):
@@ -106,7 +107,7 @@ class GANTrainer(ETTrainer):
         losses = self.new_averages()
         losses.add(errD.item(), len(batch['input']), index=0)
         losses.add(errG.item(), len(batch['input']), index=1)
-        return {'averages': losses, 'real_images':real_images}
+        return {'averages': losses, 'real_images': real_images}
 
     def _on_iteration_end(self, i, ep, it):
         if i % 500 == 0:  # Save every 500th batch after 2nd epoch
