@@ -1,15 +1,12 @@
 # GAN example for easytorch.
 ### 1. Dataset can be downloaded at [CelebFaces Attributes Datasets](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html)
 ### 2. Models/Implementation example for Generator and Discriminator are used from the examples:
-- [DCGAN Tutorial](https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html)
+- [DCGAN Tutorial of pytorch](https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html)
 
-### How to run?
-#### 1. Download/extract dataset from above in gan-easytorch-celeb-faces/datasets/ folder.
-#### 2. python main.py python main.py -ph train -rt 1 -b 128 -lr 0.0005
-- -ph is phase (train, validation, test)
-- -rt is split data to just one (train). If it was (0.8, 0.2), the data would be split in train, test set.
-- -b batch size
-- -lr learning rate
+## How to run?
+#### 1. Download/extract dataset from above link:
+* Place in gan-easytorch-celeb-faces/datasets/ folder.
+#### 2. Implementation
 ```python
 class CelebDataset(ETDataset):
     def __init__(self, **kw):
@@ -45,7 +42,7 @@ class GANTrainer(ETTrainer):
     def _init_optimizer(self):
         self.optimizer['gen'] = torch.optim.Adam(self.nn['gen'].parameters(), lr=self.args['learning_rate'],
                                                  betas=(0.5, 0.999))
-        self.optimizer['dis'] = torch.optim.Adam(self.nn['gen'].parameters(), lr=self.args['learning_rate'],
+        self.optimizer['dis'] = torch.optim.Adam(self.nn['dis'].parameters(), lr=self.args['learning_rate'],
                                                  betas=(0.5, 0.999))
 
     def training_iteration(self, batch):
@@ -70,10 +67,10 @@ class GANTrainer(ETTrainer):
         # Generate batch of latent vectors
         noise = torch.randn(b_size, self.args['latent_size'], 1, 1, device=self.device['gpu'])
         # Generate fake image batch with G
-        fake = self.nn['gen'](noise).detach()
+        fake = self.nn['gen'](noise)
         label.fill_(self.fake_label)
         # Classify all fake batch with D
-        output = self.nn['dis'](fake).view(-1)
+        output = self.nn['dis'](fake.detach()).view(-1)
         # Calculate D's loss on the all-fake batch
         errD_fake = self.criterion(output, label)
         # Calculate the gradients for this batch
@@ -102,10 +99,10 @@ class GANTrainer(ETTrainer):
         losses = self.new_averages()
         losses.add(errD.item(), len(batch['input']), index=0)
         losses.add(errG.item(), len(batch['input']), index=1)
-        return {'averages': losses, 'real_images':real_images}
+        return {'averages': losses, 'real_images': real_images}
 
     def _on_iteration_end(self, i, ep, it):
-        if i % 500 == 0:  # Save every 500th batch after 2nd epoch
+        if i % 500 == 0:  # Save every 500th multiple batch
             fake = self.nn['gen'](self.fixed_noise.to(self.device['gpu'])).detach().cpu()
             grid = vutils.make_grid(fake, padding=2, normalize=True)
             vutils.save_image(grid, f"{self.cache['log_dir']}{sep}{i}_fake.png")
@@ -116,14 +113,40 @@ class GANTrainer(ETTrainer):
     def new_averages(self):
         return ETAverages(num_averages=2)
 
-    def reset_fold_cache(self):
-        self.cache['training_log'] = ['D_LOSS,G_LOSS']
+    def reset_dataset_cache(self):
+        self.cache['monitor_metric'] = 'time'
+        self.cache['metric_direction'] = 'maximize'
+        self.cache['log_header'] = 'D_Loss,G_Loss'
+
+    def new_metrics(self):
+        return ETMetrics()
 ```
-Run
+### Run
 ```python
+ap = argparse.ArgumentParser(parents=[ap], add_help=False)
+ap.add_argument('-nz', '--latent_size', default=100, type=int, help='Latent vector Size.(Size of generator input)')
+ap.add_argument('-ngf', '--map_gen_size', default=64, type=int, help='Size of feature map in Gen ')
+ap.add_argument('-ndf', '--map_dis_size', default=64, type=int, help='Size of feature map in Disc ')
 dataspecs = [dspec.CELEB]
-runner = EasyTorch(ap, dataspecs)
+runner = EasyTorch(dataspecs, ap)
 
 if __name__ == "__main__":
     runner.run(CelebDataset, GANTrainer)
 ```
+
+```python 
+python main.py -ph train -rt 1 -b 128 -lr 0.0002 -e 15
+```
+- ph is phase (train, validation, test)
+- rt is split data to just one (train). If it was (0.8, 0.2), the data would be split in train, test set.
+- b batch size
+- lr learning rate
+
+### Generated Images
+![Generated Images](net_logs/CELEB/1500_fake.png)
+
+### Real Images
+![Real Images](net_logs/CELEB/1500_real.png)
+
+### Training Plots
+![Plots](net_logs/CELEB/CELEB_training_log.png)

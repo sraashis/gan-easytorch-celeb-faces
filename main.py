@@ -9,7 +9,7 @@ from easytorch import ETTrainer
 from easytorch import EasyTorch
 from easytorch.data import ETDataset
 from easytorch.etargs import ap
-from easytorch.metrics import ETAverages
+from easytorch.metrics import ETAverages, ETMetrics
 
 import dataspecs as dspec
 from models import Generator, Discriminator
@@ -75,10 +75,10 @@ class GANTrainer(ETTrainer):
         # Generate batch of latent vectors
         noise = torch.randn(b_size, self.args['latent_size'], 1, 1, device=self.device['gpu'])
         # Generate fake image batch with G
-        fake = self.nn['gen'](noise).detach()
+        fake = self.nn['gen'](noise)
         label.fill_(self.fake_label)
         # Classify all fake batch with D
-        output = self.nn['dis'](fake).view(-1)
+        output = self.nn['dis'](fake.detach()).view(-1)
         # Calculate D's loss on the all-fake batch
         errD_fake = self.criterion(output, label)
         # Calculate the gradients for this batch
@@ -110,7 +110,7 @@ class GANTrainer(ETTrainer):
         return {'averages': losses, 'real_images': real_images}
 
     def _on_iteration_end(self, i, ep, it):
-        if i % 500 == 0:  # Save every 500th batch after 2nd epoch
+        if i % 500 == 0:  # Save every 500th multiple batch
             fake = self.nn['gen'](self.fixed_noise.to(self.device['gpu'])).detach().cpu()
             grid = vutils.make_grid(fake, padding=2, normalize=True)
             vutils.save_image(grid, f"{self.cache['log_dir']}{sep}{i}_fake.png")
@@ -121,8 +121,13 @@ class GANTrainer(ETTrainer):
     def new_averages(self):
         return ETAverages(num_averages=2)
 
-    def reset_fold_cache(self):
-        self.cache['training_log'] = ['D_LOSS,G_LOSS']
+    def reset_dataset_cache(self):
+        self.cache['monitor_metric'] = 'time'
+        self.cache['metric_direction'] = 'maximize'
+        self.cache['log_header'] = 'D_Loss,G_Loss'
+
+    def new_metrics(self):
+        return ETMetrics()
 
 
 ap = argparse.ArgumentParser(parents=[ap], add_help=False)
@@ -130,7 +135,7 @@ ap.add_argument('-nz', '--latent_size', default=100, type=int, help='Latent vect
 ap.add_argument('-ngf', '--map_gen_size', default=64, type=int, help='Size of feature map in Gen ')
 ap.add_argument('-ndf', '--map_dis_size', default=64, type=int, help='Size of feature map in Disc ')
 dataspecs = [dspec.CELEB]
-runner = EasyTorch(ap, dataspecs)
+runner = EasyTorch(dataspecs, ap)
 
 if __name__ == "__main__":
     runner.run(CelebDataset, GANTrainer)
