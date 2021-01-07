@@ -135,14 +135,6 @@ if __name__ == "__main__":
     runner.run(CelebDataset, GANTrainer)
 ```
 
-```python 
-python main.py -ph train -rt 1 -b 128 -lr 0.0002 -e 15
-```
-- ph is phase (train, validation, test)
-- rt is split data to just one (train). If it was (0.8, 0.2), the data would be split in train, test set.
-- b batch size
-- lr learning rate
-
 ### Generated Images
 ![Generated Images](net_logs/CELEB/1500_fake.png)
 
