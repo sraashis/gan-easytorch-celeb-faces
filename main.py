@@ -1,17 +1,10 @@
-import argparse
 import os
 
 import torch
 import torchvision.transforms as tmf
 import torchvision.utils as vutils
 from PIL import Image as IMG
-from easytorch import ETTrainer
-from easytorch import EasyTorch
-from easytorch.data import ETDataset
-from easytorch.etargs import ap
-from easytorch.metrics import ETAverages, ETMetrics
-
-import dataspecs as dspec
+from easytorch import EasyTorch, ETTrainer, ETDataset, ETMetrics, ETAverages
 from models import Generator, Discriminator
 
 sep = os.sep
@@ -130,12 +123,13 @@ class GANTrainer(ETTrainer):
         return ETMetrics()
 
 
-ap = argparse.ArgumentParser(parents=[ap], add_help=False)
-ap.add_argument('-nz', '--latent_size', default=100, type=int, help='Latent vector Size.(Size of generator input)')
-ap.add_argument('-ngf', '--map_gen_size', default=64, type=int, help='Size of feature map in Gen ')
-ap.add_argument('-ndf', '--map_dis_size', default=64, type=int, help='Size of feature map in Disc ')
-dataspecs = [dspec.CELEB]
-runner = EasyTorch(dataspecs, ap)
+CELEB = {
+    'name': 'CELEB',
+    'data_dir': 'img_align_celeba'
+}
+runner = EasyTorch([CELEB], dataset_dir='datasets',
+                   learning_rate=0.0002, split_ratio=[1], epochs=15, num_channel=3,
+                   latent_size=100, map_gen_size=64, map_dis_size=64)
 
 if __name__ == "__main__":
     runner.run(CelebDataset, GANTrainer)
