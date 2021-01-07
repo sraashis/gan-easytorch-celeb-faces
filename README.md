@@ -1,12 +1,12 @@
-# GAN example for easytorch.
-### 1. Dataset can be downloaded at [CelebFaces Attributes Datasets](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html)
-### 2. Models/Implementation example for Generator and Discriminator are used from the examples:
+### GAN example for easytorch.
+- #### Dataset can be downloaded at [CelebFaces Attributes Datasets](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html)
+- #### Models/Implementation example for Generator and Discriminator are used from the examples:
 - [DCGAN Tutorial of pytorch](https://pytorch.org/tutorials/beginner/dcgan_faces_tutorial.html)
 
-## How to run?
-#### 1. Download/extract dataset from above link:
+### How to run?
+* #### Download/extract dataset from above link:
 * Place in gan-easytorch-celeb-faces/datasets/ folder.
-#### 2. Implementation
+* #### Implementation
 ```python
 class CelebDataset(ETDataset):
     def __init__(self, **kw):
