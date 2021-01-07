@@ -127,7 +127,7 @@ CELEB = {
     'name': 'CELEB',
     'data_dir': 'img_align_celeba'
 }
-runner = EasyTorch([CELEB], dataset_dir='datasets',
+runner = EasyTorch([CELEB], phase='train', dataset_dir='datasets',
                    learning_rate=0.0002, split_ratio=[1], epochs=15, num_channel=3,
                    latent_size=100, map_gen_size=64, map_dis_size=64)
 
