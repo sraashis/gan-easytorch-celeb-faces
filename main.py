@@ -46,7 +46,7 @@ class GANTrainer(ETTrainer):
         self.optimizer['dis'] = torch.optim.Adam(self.nn['dis'].parameters(), lr=self.args['learning_rate'],
                                                  betas=(0.5, 0.999))
 
-    def training_iteration(self, batch):
+    def training_iteration(self, i, batch):
         ############################
         # (1) Update D network: maximize log(D(x)) + log(1 - D(G(z)))
         ###########################
