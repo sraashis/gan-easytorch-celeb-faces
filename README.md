@@ -132,7 +132,7 @@ runner = EasyTorch([CELEB], phase='train', dataset_dir='datasets',
                    latent_size=100, map_gen_size=64, map_dis_size=64)
 
 if __name__ == "__main__":
-    runner.run(CelebDataset, GANTrainer)
+    runner.run(GANTrainer, CelebDataset)
 ```
 
 ### Generated Images
