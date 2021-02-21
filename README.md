@@ -114,12 +114,7 @@ class GANTrainer(ETTrainer):
         return ETAverages(num_averages=2)
 
     def init_experiment_cache(self):
-        self.cache['monitor_metric'] = 'time'
-        self.cache['metric_direction'] = 'maximize'
         self.cache['log_header'] = 'D_Loss,G_Loss'
-
-    def new_metrics(self):
-        return ETMetrics()
 ```
 ### Run
 ```python
