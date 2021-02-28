@@ -29,8 +29,8 @@ class CelebDataset(ETDataset):
 
 
 class GANTrainer(ETTrainer):
-    def __init__(self, args):
-        super().__init__(args)
+    def __init__(self, args, dataloader_args: dict):
+        super().__init__(args, dataloader_args)
         self.real_label = 1
         self.fake_label = 0
         self.criterion = torch.nn.BCELoss()
