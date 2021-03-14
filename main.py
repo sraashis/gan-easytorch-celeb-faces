@@ -29,8 +29,8 @@ class CelebDataset(ETDataset):
 
 
 class GANTrainer(ETTrainer):
-    def __init__(self, args, dataloader_args: dict):
-        super().__init__(args, dataloader_args)
+    def __init__(self, args, **kw):
+        super().__init__(args, **kw)
         self.real_label = 1
         self.fake_label = 0
         self.criterion = torch.nn.BCELoss()
@@ -102,7 +102,7 @@ class GANTrainer(ETTrainer):
         losses.add(errG.item(), len(batch['input']), index=1)
         return {'averages': losses, 'real_images': real_images}
 
-    def _on_iteration_end(self, i, ep, it):
+    def _on_iteration_end(self, i, epoch, it):
         if i % 500 == 0:  # Save every 500th multiple batch
             fake = self.nn['gen'](self.fixed_noise.to(self.device['gpu'])).detach().cpu()
             grid = vutils.make_grid(fake, padding=2, normalize=True)
