@@ -4,7 +4,7 @@ import torch
 import torchvision.transforms as tmf
 import torchvision.utils as vutils
 from PIL import Image as IMG
-from easytorch import EasyTorch, ETTrainer, ETDataset, ETMetrics, ETAverages
+from easytorch import EasyTorch, ETTrainer, ETDataset, ETMeter, ETAverages
 from models import Generator, Discriminator
 
 sep = os.sep
@@ -97,10 +97,10 @@ class GANTrainer(ETTrainer):
         # Update G
         self.optimizer['gen'].step()
 
-        losses = self.new_averages()
-        losses.add(errD.item(), len(batch['input']), index=0)
-        losses.add(errG.item(), len(batch['input']), index=1)
-        return {'averages': losses, 'real_images': real_images}
+        losses = self.new_meter()
+        losses.averages.add(errD.item(), len(batch['input']), index=0)
+        losses.averages.add(errG.item(), len(batch['input']), index=1)
+        return {'meter': losses, 'real_images': real_images}
 
     def _on_iteration_end(self, i, epoch, it):
         if i % 500 == 0:  # Save every 500th multiple batch
@@ -111,8 +111,8 @@ class GANTrainer(ETTrainer):
             grid = vutils.make_grid(it['real_images'], padding=2, normalize=True)
             vutils.save_image(grid, f"{self.cache['log_dir']}{sep}{i}_real.png")
 
-    def new_averages(self):
-        return ETAverages(num_averages=2)
+    def new_meter(self):
+        return ETMeter(num_averages=2)
 
     def init_experiment_cache(self):
         self.cache['log_header'] = 'D_Loss,G_Loss'
